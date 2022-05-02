@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
 import { Capsule } from 'three/examples/jsm/math/Capsule.js';
 
-
+const textureloader = new THREE.TextureLoader();
 const clock = new THREE.Clock();
 
 const scene = new THREE.Scene();
@@ -46,12 +46,14 @@ container.appendChild(renderer.domElement);
 const GRAVITY = 30;
 
 const NUM_SPHERES = 100;
-const SPHERE_RADIUS = 1;
+const SPHERE_RADIUS = 0.2;
 
 const STEPS_PER_FRAME = 5;
 
+const textureBall = textureloader.load('assets/models/basketball.png');
+
 const sphereGeometry = new THREE.IcosahedronGeometry(SPHERE_RADIUS, 5);
-const sphereMaterial = new THREE.MeshLambertMaterial({ color: 0xbbbb44 });
+const sphereMaterial = new THREE.MeshLambertMaterial({ map: textureBall });
 
 // @ts-ignore
 const spheres = [];
@@ -74,7 +76,11 @@ for (let i = 0; i < NUM_SPHERES; i++) {
 
 const worldOctree = new Octree();
 
-const playerCollider = new Capsule(new THREE.Vector3(0, 0.35, 0), new THREE.Vector3(0, 1, 0), 0.35);
+const startingX = 4;
+const startingY = 23.35;
+const startingZ = -8;
+
+const playerCollider = new Capsule(new THREE.Vector3(startingX, startingY, startingZ), new THREE.Vector3(startingX, startingY+0.65, startingZ), 0.35);
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 
@@ -127,7 +133,8 @@ function throwBall() {
   camera.getWorldDirection(playerDirection);
   sphere.collider.center.copy(playerCollider.end).addScaledVector(playerDirection, playerCollider.radius * 1.5);
   // throw the ball with more force if we hold the button longer, and if we move forward
-  const impulse = 15 + 30 * (1 - Math.exp((mouseTime - performance.now()) * 0.001));
+  let impulse = 15 + 30 * (1 - Math.exp((mouseTime - performance.now()) * 0.001));
+  impulse *= 2;
   sphere.velocity.copy(playerDirection).multiplyScalar(impulse);
   sphere.velocity.addScaledVector(playerVelocity, 2);
   sphereIdx = (sphereIdx + 1) % spheres.length;
@@ -282,7 +289,11 @@ function controls(deltaTime: number) {
 
 const loader = new GLTFLoader().setPath('assets/models/');
 
-loader.load('collision-world.glb', (gltf) => {
+const texture = textureloader.load('assets/models/metal_plate.png');
+texture.encoding = THREE.sRGBEncoding;
+
+loader.load('world1.gltf', (gltf) => {
+  gltf.scene.scale.set(2, 2, 2);
   scene.add(gltf.scene);
   worldOctree.fromGraphNode(gltf.scene);
 
@@ -292,10 +303,9 @@ loader.load('collision-world.glb', (gltf) => {
       child.castShadow = true;
       child.receiveShadow = true;
       // @ts-ignore
-      if (child.material.map) {
-        // @ts-ignore
-        child.material.map.anisotropy = 4;
-      }
+      child.material.map = texture;
+      // @ts-ignore
+      child.material.needsUpdate = true;
     }
   });
   animate();
@@ -303,8 +313,8 @@ loader.load('collision-world.glb', (gltf) => {
 
 function teleportPlayerIfOob() {
   if (camera.position.y <= - 25) {
-    playerCollider.start.set(0, 0.35, 0);
-    playerCollider.end.set(0, 1, 0);
+    playerCollider.start.set(startingX, startingY, startingZ);
+    playerCollider.end.set(startingX, startingY+0.65, startingZ);
     playerCollider.radius = 0.35;
     camera.position.copy(playerCollider.end);
     camera.rotation.set(0, 0, 0);
